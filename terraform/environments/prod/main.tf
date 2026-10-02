@@ -1,0 +1,33 @@
+module "workload" {
+  source = "../../modules/workload"
+
+  environment                  = var.environment
+  ami_ssm_parameter            = var.ami_ssm_parameter
+  app_version                  = var.app_version
+  app_port                     = var.app_port
+  health_check_path            = var.health_check_path
+  java_opts                    = var.java_opts
+  instance_type                = var.instance_type
+  root_volume_size             = var.root_volume_size
+  asg_min_size                 = var.asg_min_size
+  asg_max_size                 = var.asg_max_size
+  cpu_target_utilization       = var.cpu_target_utilization
+  db_engine_version            = var.db_engine_version
+  db_instance_class            = var.db_instance_class
+  db_name                      = var.db_name
+  db_allocated_storage         = var.db_allocated_storage
+  db_max_allocated_storage     = var.db_max_allocated_storage
+  db_multi_az                  = var.db_multi_az
+  db_backup_retention_days     = var.db_backup_retention_days
+  db_deletion_protection       = var.db_deletion_protection
+  db_final_snapshot            = var.db_final_snapshot
+  db_performance_insights      = var.db_performance_insights
+  efs_backup                   = var.efs_backup
+  enable_waf                   = var.enable_waf
+  waf_rate_limit_per_5_minutes = var.waf_rate_limit_per_5_minutes
+  alb_deletion_protection      = var.alb_deletion_protection
+  alb_log_retention_in_days    = var.alb_log_retention_in_days
+  force_destroy_log_bucket     = var.force_destroy_log_bucket
+  log_retention_in_days        = var.log_retention_in_days
+  alert_email                  = var.alert_email
+}

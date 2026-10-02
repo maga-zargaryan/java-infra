@@ -35,7 +35,7 @@ Read from SSM Parameter Store, never from other repositories' state:
 |---|---|
 | `/java-platform/{artifacts_bucket, boundary_arn}` | infra-bootstrap |
 | `/java-platform/<env>/{vpc_id, *_subnet_ids, db_subnet_group_name, endpoint_sg_id, s3_prefix_list_id, kms_key_arn, acm_certificate_arn, domain_name, route53_zone_id}` | platform-infra |
-| `/java-platform/ami/java-base` | java-ami |
+| `/imagebuilder/java-platform/java-base` | java-ami |
 
 `alert_email` comes from the `ALERT_EMAIL` environment secret, managed by infra-bootstrap.
 
