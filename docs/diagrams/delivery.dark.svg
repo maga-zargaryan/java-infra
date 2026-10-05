@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1100 330" role="img" aria-label="Delivery flow: pull requests run checks and read-only plans; merging applies dev, then (when production is enabled) plans prod, waits for approval and applies that exact plan." xmlns="http://www.w3.org/2000/svg" width="1100" height="330"><style>text{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif} .d-text{fill:#e6edf3} .d-muted{fill:#8e99a8} .d-mono{fill:#b7c0cc;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace} .d-edge{fill:#b7c0cc;font-weight:600} .d-labelbg{fill:#161b22} .d-line{stroke:#b7c0cc} .d-arrowhead{fill:#b7c0cc} .d-arrowhead-accent{fill:#E8590C} .d-box{fill:#161b22;stroke:#30363d} .d-note{fill:#1b232d;stroke:#30363d} .d-abbr{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;letter-spacing:.02em}</style><rect x="0" y="0" width="1100" height="330" rx="10" fill="#0d1117"/><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrowhead"/></marker><marker id="as" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrowhead"/></marker><marker id="ah-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrowhead-accent"/></marker><marker id="as-accent" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrowhead-accent"/></marker></defs><rect x="20" y="20" width="1060" height="120" rx="6" fill="#5A6B86" fill-opacity="0.06" stroke="#5A6B86" stroke-width="1.4" stroke-dasharray="0"/>
+<rect x="20" y="20" width="363.0" height="20" rx="6" fill="#5A6B86"/>
+<text x="26" y="34" font-size="11" font-weight="700" fill="#ffffff" class="d-abbr">Pull request  ·  pr.yml  ·  read-only *-plan roles</text>
+<rect x="40" y="52" width="220" height="72" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="150.0" y="70" font-size="12" text-anchor="middle" font-weight="700" class="d-text">static checks</text>
+<text x="150.0" y="86" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">fmt · validate</text>
+<text x="150.0" y="100" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">tflint · Trivy</text>
+<polyline points="260,88 302,88" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="302" y="52" width="220" height="72" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="412.0" y="70" font-size="12" text-anchor="middle" font-weight="700" class="d-text">plan (dev / shared)</text>
+<text x="412.0" y="86" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">role *_plan</text>
+<text x="412.0" y="100" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">summary in PR</text>
+<polyline points="522,88 564,88" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="564" y="52" width="220" height="72" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="674.0" y="70" font-size="12" text-anchor="middle" font-weight="700" class="d-text">plan (prod)</text>
+<text x="674.0" y="86" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">skipped unless</text>
+<text x="674.0" y="100" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">PRODUCTION_ENABLED</text>
+<polyline points="784,88 826,88" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="826" y="52" width="220" height="72" rx="6" stroke="#E8590C" fill="#E8590C" fill-opacity="0.08" stroke-width="1.4"/>
+<text x="936.0" y="70" font-size="12" text-anchor="middle" font-weight="700" class="d-text">ci</text>
+<text x="936.0" y="86" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">required status</text>
+<text x="936.0" y="100" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">check on main</text>
+<polyline points="910,124 910,168" fill="none" stroke="#E8590C" stroke-width="1.6" marker-end="url(#ah-accent)"/>
+<rect x="861.2" y="139" width="97.60000000000001" height="16" rx="3" class="d-labelbg"/>
+<text x="910" y="150" font-size="10.5" text-anchor="middle" font-weight="400" class="d-edge">merge (squash)</text>
+<rect x="20" y="176" width="1060" height="140" rx="6" fill="#5A6B86" fill-opacity="0.06" stroke="#5A6B86" stroke-width="1.4" stroke-dasharray="0"/>
+<rect x="20" y="176" width="526.3" height="20" rx="6" fill="#5A6B86"/>
+<text x="26" y="190" font-size="11" font-weight="700" fill="#ffffff" class="d-abbr">Merge to main  ·  deploy.yml  ·  apply roles  ·  concurrency group deploy</text>
+<rect x="40" y="210" width="188" height="84" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="134.0" y="228" font-size="12" text-anchor="middle" font-weight="700" class="d-text">apply shared</text>
+<text x="134.0" y="244" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">platform-infra only</text>
+<polyline points="228,252 250,252" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="250" y="210" width="188" height="84" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="344.0" y="228" font-size="12" text-anchor="middle" font-weight="700" class="d-text">apply dev</text>
+<text x="344.0" y="244" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">environment: development</text>
+<polyline points="438,252 460,252" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="460" y="210" width="188" height="84" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="554.0" y="228" font-size="12" text-anchor="middle" font-weight="700" class="d-text">plan prod</text>
+<text x="554.0" y="244" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">encrypt tfplan → artifact</text>
+<text x="554.0" y="258" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">if PRODUCTION_ENABLED</text>
+<polyline points="648,252 670,252" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="670" y="210" width="188" height="84" rx="6" stroke="#E8590C" fill="#E8590C" fill-opacity="0.08" stroke-width="1.4"/>
+<text x="764.0" y="228" font-size="12" text-anchor="middle" font-weight="700" class="d-text">approval</text>
+<text x="764.0" y="244" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">environment: production</text>
+<text x="764.0" y="258" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">required reviewer</text>
+<polyline points="858,252 880,252" fill="none" class="d-line" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="880" y="210" width="188" height="84" rx="6" class="d-box" stroke-width="1.4"/>
+<text x="974.0" y="228" font-size="12" text-anchor="middle" font-weight="700" class="d-text">apply prod</text>
+<text x="974.0" y="244" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">decrypt, apply the</text>
+<text x="974.0" y="258" font-size="10.5" text-anchor="middle" font-weight="400" class="d-muted">exact reviewed plan</text></svg>
