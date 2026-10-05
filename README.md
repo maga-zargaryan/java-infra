@@ -74,4 +74,7 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 | `deploy.yml` | Merge to `main` | apply dev → plan prod → **approval** → apply the reviewed (encrypted) plan |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
 
+Production stages (prod plan on pull requests, prod plan/apply on deploy) run only when the
+repository variable `PRODUCTION_ENABLED` is `true`; it is managed by infra-bootstrap (`production_enabled`).
+
 Deploy order for a fresh account: infra-bootstrap → platform-infra → java-ami (build an image) → upload a release → java-infra.

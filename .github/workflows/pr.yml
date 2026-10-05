@@ -78,9 +78,15 @@ jobs:
     env:
       TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
     steps:
+      - name: Production disabled
+        if: matrix.stack == 'prod' && vars.PRODUCTION_ENABLED != 'true'
+        run: echo "::notice::Production plan skipped (PRODUCTION_ENABLED is not true)"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: matrix.stack != 'prod' || vars.PRODUCTION_ENABLED == 'true'
 
       - uses: ./.github/actions/terraform
+        if: matrix.stack != 'prod' || vars.PRODUCTION_ENABLED == 'true'
         with:
           working-directory: ${{ matrix.directory }}
           role-arn: ${{ vars.AWS_ROLE_ARN }}
@@ -88,6 +94,7 @@ jobs:
           terraform-version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Plan
+        if: matrix.stack != 'prod' || vars.PRODUCTION_ENABLED == 'true'
         working-directory: ${{ matrix.directory }}
         run: |
           set -o pipefail
