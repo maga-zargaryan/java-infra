@@ -1,0 +1,18 @@
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+
+# Terraform local files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+
+# Non-secret environment configuration (terraform.tfvars) is committed;
+# anything else ending in .tfvars is treated as local and ignored.
+*.tfvars
+!terraform.tfvars

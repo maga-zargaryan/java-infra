@@ -1,0 +1,106 @@
+#!/bin/bash
+# Boot-time configuration for the Java service. The AMI (java-ami) already
+# contains Corretto, the CloudWatch agent and amazon-efs-utils.
+set -euo pipefail
+
+APP_USER=javaapp
+APP_UID=1001
+APP_DIR=/opt/java-app
+DATA_DIR=/mnt/data
+LOG_DIR=/var/log/java-app
+CONFIG_DIR=/etc/java-app
+ARTIFACT_PREFIX="s3://${artifacts_bucket}/java-app/${app_version}"
+
+# Service account owning the process (matches the EFS access point POSIX user).
+id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --uid "$APP_UID" --no-create-home --shell /sbin/nologin "$APP_USER"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$APP_DIR" "$LOG_DIR"
+install -d -m 0755 "$CONFIG_DIR" "$DATA_DIR"
+
+# Release artifact, verified against its published checksum.
+aws s3 cp --region "${region}" --only-show-errors "$ARTIFACT_PREFIX/app.jar" "$APP_DIR/app.jar"
+aws s3 cp --region "${region}" --only-show-errors "$ARTIFACT_PREFIX/app.jar.sha256" "$APP_DIR/app.jar.sha256"
+(cd "$APP_DIR" && echo "$(cut -d' ' -f1 app.jar.sha256)  app.jar" | sha256sum --check --strict)
+chown "$APP_USER:$APP_USER" "$APP_DIR/app.jar"
+chmod 0440 "$APP_DIR/app.jar"
+
+# Shared storage: TLS in transit, IAM authorization, scoped access point.
+echo "${efs_id}:/ $DATA_DIR efs _netdev,noresvport,tls,iam,accesspoint=${efs_access_point_id} 0 0" >> /etc/fstab
+mount "$DATA_DIR"
+
+# Non-secret runtime configuration. The application reads the database
+# credentials from Secrets Manager at startup, so rotation needs no redeploy.
+cat > "$CONFIG_DIR/app.env" <<EOF
+APP_ENVIRONMENT=${environment}
+APP_VERSION=${app_version}
+AWS_REGION=${region}
+SERVER_PORT=${app_port}
+DATA_DIR=$DATA_DIR
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_NAME=${db_name}
+DB_SECRET_ARN=${db_secret_arn}
+JAVA_OPTS=${java_opts}
+EOF
+chmod 0644 "$CONFIG_DIR/app.env"
+
+cat > /etc/systemd/system/java-app.service <<'EOF'
+[Unit]
+Description=Java application
+Wants=network-online.target
+After=network-online.target remote-fs.target
+
+[Service]
+Type=simple
+User=javaapp
+Group=javaapp
+EnvironmentFile=/etc/java-app/app.env
+ExecStart=/bin/sh -c 'exec /usr/bin/java $JAVA_OPTS -Dserver.port=$SERVER_PORT -jar /opt/java-app/app.jar'
+Restart=always
+RestartSec=5
+SuccessExitStatus=143
+StandardOutput=append:/var/log/java-app/app.log
+StandardError=append:/var/log/java-app/app.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/java-app /mnt/data
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Ship application logs and memory/disk metrics to CloudWatch.
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
+{
+  "agent": { "run_as_user": "root" },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/java-app/app.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": -1
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "namespace": "CWAgent",
+    "append_dimensions": { "AutoScalingGroupName": "$${aws:AutoScalingGroupName}" },
+    "aggregation_dimensions": [["AutoScalingGroupName"]],
+    "metrics_collected": {
+      "mem": { "measurement": ["mem_used_percent"] },
+      "disk": { "measurement": ["used_percent"], "resources": ["/"] }
+    }
+  }
+}
+EOF
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+systemctl daemon-reload
+systemctl enable --now java-app.service

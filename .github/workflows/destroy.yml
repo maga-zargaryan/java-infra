@@ -1,0 +1,65 @@
+name: Destroy
+
+# Tear down one environment. The production run waits for approval; deletion
+# protection is lifted with a targeted apply first and the final database
+# snapshot is kept.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to destroy
+        type: choice
+        options: [dev, prod]
+        required: true
+      confirm:
+        description: Type the environment name again to confirm
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: "1.15.8"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  destroy:
+    name: destroy (${{ inputs.environment }})
+    if: inputs.environment == inputs.confirm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: ${{ inputs.environment == 'prod' && 'production' || 'development' }}
+    env:
+      WORKDIR: terraform/environments/${{ inputs.environment }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/terraform
+        with:
+          working-directory: ${{ env.WORKDIR }}
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          terraform-version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Lift deletion protection
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          terraform apply -lock-timeout=5m -auto-approve \
+            -var=db_deletion_protection=false \
+            -var=alb_deletion_protection=false \
+            -target=module.workload.aws_db_instance.this \
+            -target=module.workload.aws_lb.this
+
+      - name: Destroy
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          terraform destroy -lock-timeout=5m -auto-approve \
+            -var=db_deletion_protection=false \
+            -var=alb_deletion_protection=false

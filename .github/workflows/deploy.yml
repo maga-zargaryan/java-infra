@@ -1,0 +1,114 @@
+name: Deploy
+
+# dev → prod plan → (approval) → prod apply, all from the same commit.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/deploy.yml"
+      - ".github/actions/terraform/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: "1.15.8"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  dev:
+    name: apply (dev)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: development
+    env:
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/terraform
+        with:
+          working-directory: terraform/environments/dev
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          terraform-version: ${{ env.TERRAFORM_VERSION }}
+      - name: Apply
+        working-directory: terraform/environments/dev
+        run: terraform apply -lock-timeout=5m -auto-approve
+
+  prod-plan:
+    name: plan (prod)
+    needs: dev
+    if: vars.PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production-plan
+    env:
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/terraform
+        with:
+          working-directory: terraform/environments/prod
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          terraform-version: ${{ env.TERRAFORM_VERSION }}
+      - name: Plan
+        working-directory: terraform/environments/prod
+        run: |
+          terraform plan -lock-timeout=5m -no-color -out=tfplan
+          {
+            echo "### Production plan (awaiting approval)"
+            echo '```'
+            terraform show -no-color tfplan
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Plans can contain sensitive values and these repositories are public.
+      - name: Encrypt plan
+        working-directory: terraform/environments/prod
+        env:
+          TF_PLAN_PASSPHRASE: ${{ secrets.TF_PLAN_PASSPHRASE }}
+        run: openssl enc -aes-256-cbc -pbkdf2 -salt -in tfplan -out tfplan.enc -pass env:TF_PLAN_PASSPHRASE
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: prod-tfplan
+          path: terraform/environments/prod/tfplan.enc
+          retention-days: 1
+          if-no-files-found: error
+
+  prod-apply:
+    name: apply (prod)
+    needs: prod-plan
+    if: vars.PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: prod-tfplan
+          path: terraform/environments/prod
+      - uses: ./.github/actions/terraform
+        with:
+          working-directory: terraform/environments/prod
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          terraform-version: ${{ env.TERRAFORM_VERSION }}
+      - name: Decrypt plan
+        working-directory: terraform/environments/prod
+        env:
+          TF_PLAN_PASSPHRASE: ${{ secrets.TF_PLAN_PASSPHRASE }}
+        run: openssl enc -d -aes-256-cbc -pbkdf2 -in tfplan.enc -out tfplan -pass env:TF_PLAN_PASSPHRASE
+      - name: Apply reviewed plan
+        working-directory: terraform/environments/prod
+        run: terraform apply -lock-timeout=5m tfplan
