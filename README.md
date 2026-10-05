@@ -27,6 +27,53 @@ terraform/
     └── prod/              # state workload/prod, terraform.tfvars
 ```
 
+## Diagrams
+
+### How the four repositories fit together
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/repositories.dark.svg">
+  <img alt="How the four repositories fit together: Each column is one repository: its workflows, the AWS services it creates, and what happens in it, in order. Repositories hand values to each other only through SSM Parameter Store." src="docs/diagrams/repositories.light.svg">
+</picture>
+
+Each column is one repository: its workflows, the AWS services it creates, and what happens in it, in order. Repositories hand values to each other only through SSM Parameter Store.
+
+### AWS architecture
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/architecture.dark.svg">
+  <img alt="AWS architecture: Dev environment, image build VPC and account baseline. Faded elements exist only in prod. The orange path is user traffic; the dashed orange path is a new AMI rolling into the fleet." src="docs/diagrams/architecture.light.svg">
+</picture>
+
+Dev environment, image build VPC and account baseline. Faded elements exist only in prod. The orange path is user traffic; the dashed orange path is a new AMI rolling into the fleet.
+
+### Request path and security groups
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/request-path.dark.svg">
+  <img alt="Request path and security groups: Route 53 resolves to the ALB, which terminates TLS and forwards to the app on 8080. Each hop is allowed by exactly one security-group rule." src="docs/diagrams/request-path.light.svg">
+</picture>
+
+Route 53 resolves to the ALB, which terminates TLS and forwards to the app on 8080. Each hop is allowed by exactly one security-group rule.
+
+### Instance boot and rolling refresh
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/instance-lifecycle.dark.svg">
+  <img alt="Instance boot and rolling refresh: What every new instance runs at boot, and how a new AMI or app version rolls through the fleet." src="docs/diagrams/instance-lifecycle.light.svg">
+</picture>
+
+What every new instance runs at boot, and how a new AMI or app version rolls through the fleet.
+
+### Delivery flow
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/delivery.dark.svg">
+  <img alt="Delivery flow: Pull requests run checks and read-only plans. Merging applies dev, then (when PRODUCTION_ENABLED is true) plans prod, waits for approval and applies that exact plan." src="docs/diagrams/delivery.light.svg">
+</picture>
+
+Pull requests run checks and read-only plans. Merging applies dev, then (when PRODUCTION_ENABLED is true) plans prod, waits for approval and applies that exact plan.
+
 ## Inputs
 
 Read from SSM Parameter Store, never from other repositories' state:
@@ -70,7 +117,7 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod; `ci` is the required check |
+| `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod (skipped when nothing under `terraform/` changed); `ci` is the required check |
 | `deploy.yml` | Merge to `main` | apply dev → plan prod → **approval** → apply the reviewed (encrypted) plan |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
 
