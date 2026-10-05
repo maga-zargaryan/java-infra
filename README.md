@@ -35,7 +35,7 @@ Read from SSM Parameter Store, never from other repositories' state:
 |---|---|
 | `/java-platform/{artifacts_bucket, boundary_arn}` | infra-bootstrap |
 | `/java-platform/<env>/{vpc_id, *_subnet_ids, db_subnet_group_name, endpoint_sg_id, s3_prefix_list_id, kms_key_arn, acm_certificate_arn, domain_name, route53_zone_id}` | platform-infra |
-| `/java-platform/ami/java-base` | java-ami |
+| `/imagebuilder/java-platform/java-base` | java-ami |
 
 `alert_email` comes from the `ALERT_EMAIL` environment secret, managed by infra-bootstrap.
 
@@ -73,5 +73,8 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 | `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod; `ci` is the required check |
 | `deploy.yml` | Merge to `main` | apply dev → plan prod → **approval** → apply the reviewed (encrypted) plan |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
+
+Production stages (prod plan on pull requests, prod plan/apply on deploy) run only when the
+repository variable `PRODUCTION_ENABLED` is `true`; it is managed by infra-bootstrap (`production_enabled`).
 
 Deploy order for a fresh account: infra-bootstrap → platform-infra → java-ami (build an image) → upload a release → java-infra.
