@@ -117,7 +117,7 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod; `ci` is the required check |
+| `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod (skipped when nothing under `terraform/` changed); `ci` is the required check |
 | `deploy.yml` | Merge to `main` | apply dev → plan prod → **approval** → apply the reviewed (encrypted) plan |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
 
