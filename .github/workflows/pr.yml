@@ -59,9 +59,37 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
 
+  changes:
+    name: detect changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      infra: ${{ steps.diff.outputs.infra }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Plans need the infrastructure they read to exist; docs-only changes don't.
+      - name: Detect infrastructure changes
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --name-only "$BASE...$HEAD" | grep -qE '^terraform/'; then
+            echo "infra=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "infra=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No infrastructure changes; plan skipped"
+          fi
+
   plan:
     name: plan (${{ matrix.stack }})
-    needs: static
+    needs: [static, changes]
+    if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -115,12 +143,19 @@ jobs:
   # Single required status check for branch protection.
   ci:
     name: ci
-    needs: [static, plan]
+    needs: [static, changes, plan]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     steps:
       - name: Require all checks to pass
+        env:
+          STATIC: ${{ needs.static.result }}
+          CHANGES: ${{ needs.changes.result }}
+          PLAN: ${{ needs.plan.result }}
+          INFRA: ${{ needs.changes.outputs.infra }}
         run: |
-          [[ "${{ needs.static.result }}" == "success" && "${{ needs.plan.result }}" == "success" ]]
+          [[ "$STATIC" == "success" && "$CHANGES" == "success" ]] || exit 1
+          # The plan may only be skipped when no infrastructure changed.
+          [[ "$PLAN" == "success" || ( "$PLAN" == "skipped" && "$INFRA" == "false" ) ]]
