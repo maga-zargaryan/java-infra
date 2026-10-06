@@ -61,7 +61,8 @@ Read from SSM Parameter Store, never from other repositories' state:
 |---|---|
 | `/java-platform/boundary_arn` | infra-bootstrap |
 | `/java-platform/<env>/{vpc_id, *_subnet_ids, db_subnet_group_name, endpoint_sg_id, s3_prefix_list_id, kms_key_arn, acm_certificate_arn, domain_name, route53_zone_id}` | platform-infra |
-| `/imagebuilder/java-platform/java-app` (the app AMI, which carries the release) | java-ami |
+
+The **AMI is not looked up**: each environment pins an exact `ami_id` (an app AMI built by java-ami, which carries the release) in its `terraform.tfvars`. There is no "latest". The AMI is validated (`Image=java-app`) and tagged `InUse-<env>` so java-ami's cleanup never deletes it.
 
 `alert_email` comes from the `ALERT_EMAIL` environment secret, managed by infra-bootstrap.
 
@@ -79,16 +80,18 @@ Instances have **no user data**. java-infra publishes the runtime settings to `/
 | Cost | Dev: single instance, single-AZ `db.t4g.micro`, no WAF, short retention; storage autoscaling; EFS Infrequent Access after 30 days |
 | Operations | CloudWatch agent ships app logs + memory/disk metrics; RDS error/slow logs; ALB access logs; alarms (5xx, unhealthy hosts, latency, DB CPU/storage) to SNS email |
 
-## Releasing the application
+## Releasing and promoting
 
-The release is part of the AMI, so a release is an image build plus a rollout:
+A release is an exact AMI, moved through the environments by pull request:
 
 1. Upload `app.jar` + `app.jar.sha256` to the artifacts bucket under `java-app/<version>/`.
-2. In java-ami, set `app_version` (and bump `recipe_version`), merge: a new app AMI is built and tested.
-3. Run this repository's **Deploy** workflow: the launch template picks up the new AMI and the fleet rolls
-   (dev, then prod after approval), with health checks and auto-rollback.
+2. java-ami: set `app_version`, bump `recipe_version`, merge. The build summary shows the new AMI ID.
+3. **Dev:** set `ami_id` in `terraform/environments/dev/terraform.tfvars` to that ID and merge. Dev rolls to it
+   (health checks, auto-rollback).
+4. **Prod (promotion):** copy the same `ami_id` into `terraform/environments/prod/terraform.tfvars` and merge.
+   After approval, prod runs exactly the image dev ran.
 
-Rollback: redeploy the previous AMI (point `/imagebuilder/java-platform/java-app` at it, or rebuild the previous version).
+Rollback: set `ami_id` back to the previous AMI and merge.
 
 The application listens on `SERVER_PORT` (8080), answers `GET /health` with 200,
 and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_ARN`

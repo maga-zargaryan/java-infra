@@ -2,7 +2,7 @@ module "workload" {
   source = "../../modules/workload"
 
   environment                  = var.environment
-  ami_ssm_parameter            = var.ami_ssm_parameter
+  ami_id                       = var.ami_id
   app_port                     = var.app_port
   health_check_path            = var.health_check_path
   java_opts                    = var.java_opts

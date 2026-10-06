@@ -84,6 +84,20 @@ data "aws_ami" "app" {
     name   = "image-id"
     values = [local.ami_id]
   }
+
+  lifecycle {
+    postcondition {
+      condition     = lookup(self.tags, "Image", "") == "java-app"
+      error_message = "ami_id must be an app AMI built by java-ami (tag Image=java-app)."
+    }
+  }
+}
+
+# Marks the AMI as in use so the java-ami lifecycle policy never deletes it.
+resource "aws_ec2_tag" "ami_in_use" {
+  resource_id = local.ami_id
+  key         = "InUse-${var.environment}"
+  value       = "true"
 }
 
 locals {

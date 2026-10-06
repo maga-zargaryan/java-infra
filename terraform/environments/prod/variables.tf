@@ -8,8 +8,8 @@ variable "environment" {
   type        = string
 }
 
-variable "ami_ssm_parameter" {
-  description = "SSM parameter holding the AMI ID published by java-ami."
+variable "ami_id" {
+  description = "Exact app AMI this environment runs."
   type        = string
 }
 
