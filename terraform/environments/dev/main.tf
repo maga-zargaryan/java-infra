@@ -3,7 +3,6 @@ module "workload" {
 
   environment                  = var.environment
   ami_ssm_parameter            = var.ami_ssm_parameter
-  app_version                  = var.app_version
   app_port                     = var.app_port
   health_check_path            = var.health_check_path
   java_opts                    = var.java_opts

@@ -13,10 +13,6 @@ variable "ami_ssm_parameter" {
   type        = string
 }
 
-variable "app_version" {
-  description = "Release to deploy: s3://<artifacts>/java-app/<app_version>/app.jar (+ app.jar.sha256)."
-  type        = string
-}
 
 variable "app_port" {
   description = "Port the application listens on."

@@ -26,10 +26,6 @@ data "aws_ssm_parameter" "platform" {
   name = "/java-platform/${var.environment}/${each.value}"
 }
 
-data "aws_ssm_parameter" "artifacts_bucket" {
-  name = "/java-platform/artifacts_bucket"
-}
-
 data "aws_ssm_parameter" "boundary_arn" {
   name = "/java-platform/boundary_arn"
 }
@@ -51,7 +47,6 @@ locals {
   app_subnet_ids    = split(",", local.platform.app_subnet_ids)
   kms_key_arn       = local.platform.kms_key_arn
   domain_name       = local.platform.domain_name
-  artifacts_bucket  = data.aws_ssm_parameter.artifacts_bucket.insecure_value
   boundary_arn      = data.aws_ssm_parameter.boundary_arn.insecure_value
   ami_id            = data.aws_ssm_parameter.ami.insecure_value
 }

@@ -15,7 +15,7 @@ access through SSM Session Manager (no SSH, no bastion).
                      │ :8080
                      ▼
         Auto Scaling group (private app subnets, 2 AZs)
-        java-base AMI · IMDSv2 · KMS-encrypted gp3
+        app AMI (no user data) · IMDSv2 · KMS-encrypted gp3
           │            │             │
           ▼            ▼             ▼
    RDS MySQL 8.4     EFS (TLS +    VPC endpoints
@@ -59,11 +59,15 @@ Read from SSM Parameter Store, never from other repositories' state:
 
 | Parameter | Published by |
 |---|---|
-| `/java-platform/{artifacts_bucket, boundary_arn}` | infra-bootstrap |
+| `/java-platform/boundary_arn` | infra-bootstrap |
 | `/java-platform/<env>/{vpc_id, *_subnet_ids, db_subnet_group_name, endpoint_sg_id, s3_prefix_list_id, kms_key_arn, acm_certificate_arn, domain_name, route53_zone_id}` | platform-infra |
-| `/imagebuilder/java-platform/java-base` | java-ami |
+| `/imagebuilder/java-platform/java-app` (the app AMI, which carries the release) | java-ami |
 
 `alert_email` comes from the `ALERT_EMAIL` environment secret, managed by infra-bootstrap.
+
+## Outputs to instances
+
+Instances have **no user data**. java-infra publishes the runtime settings to `/java-platform/<env>/app/{server_port, java_opts, db_host, db_port, db_name, db_secret_arn, efs_id, efs_access_point_id, log_group}`, tags each instance with `Environment`, and enables instance-metadata tags. The configurator baked into the AMI reads the tag and loads those settings at boot. The instance role may read only its own environment's prefix.
 
 ## Design
 
@@ -77,16 +81,14 @@ Read from SSM Parameter Store, never from other repositories' state:
 
 ## Releasing the application
 
-1. Upload the build to the artifacts bucket:
-   ```bash
-   VERSION=0.1.0
-   BUCKET=$(aws ssm get-parameter --name /java-platform/artifacts_bucket --query Parameter.Value --output text)
-   sha256sum app.jar > app.jar.sha256
-   aws s3 cp app.jar        s3://$BUCKET/java-app/$VERSION/app.jar
-   aws s3 cp app.jar.sha256 s3://$BUCKET/java-app/$VERSION/app.jar.sha256
-   ```
-2. Set `app_version` in `terraform/environments/<env>/terraform.tfvars` and open a pull request.
-3. Merge: dev rolls out, then prod after approval. Instances verify the checksum before starting.
+The release is part of the AMI, so a release is an image build plus a rollout:
+
+1. Upload `app.jar` + `app.jar.sha256` to the artifacts bucket under `java-app/<version>/`.
+2. In java-ami, set `app_version` (and bump `recipe_version`), merge: a new app AMI is built and tested.
+3. Run this repository's **Deploy** workflow: the launch template picks up the new AMI and the fleet rolls
+   (dev, then prod after approval), with health checks and auto-rollback.
+
+Rollback: redeploy the previous AMI (point `/imagebuilder/java-platform/java-app` at it, or rebuild the previous version).
 
 The application listens on `SERVER_PORT` (8080), answers `GET /health` with 200,
 and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_ARN`
