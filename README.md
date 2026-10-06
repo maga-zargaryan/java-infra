@@ -84,14 +84,16 @@ Instances have **no user data**. java-infra publishes the runtime settings to `/
 
 A release is an exact AMI, moved through the environments by pull request:
 
-1. Upload `app.jar` + `app.jar.sha256` to the artifacts bucket under `java-app/<version>/`.
-2. java-ami: set `app_version`, bump `recipe_version`, merge. The build summary shows the new AMI ID.
-3. **Dev:** set `ami_id` in `terraform/environments/dev/terraform.tfvars` to that ID and merge. Dev rolls to it
-   (health checks, auto-rollback).
-4. **Prod (promotion):** copy the same `ami_id` into `terraform/environments/prod/terraform.tfvars` and merge.
-   After approval, prod runs exactly the image dev ran.
+1. **Release** in [java-app](https://github.com/maga-zargaryan/java-app): push a version tag. Its pipeline builds,
+   tests and uploads the JAR and opens a pull request in java-ami.
+2. **Image**: merging that pull request builds and tests the app AMI; java-ami then opens a pull request here
+   setting `ami_id` in `terraform/environments/dev/terraform.tfvars`.
+3. **Dev**: merge it. Dev rolls to the new AMI (health checks, auto-rollback).
+4. **Prod**: run the **Promote** workflow. It opens a pull request copying dev's `ami_id` to prod; merging it
+   and approving `production` makes prod run exactly the image dev ran.
 
-Rollback: set `ami_id` back to the previous AMI and merge.
+Rollback: set `ami_id` back to the previous AMI and merge. Cross-repository and promotion pull requests are
+opened by the release GitHub App, so their checks run like any other pull request.
 
 The application listens on `SERVER_PORT` (8080), answers `GET /health` with 200,
 and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_ARN`
@@ -103,6 +105,7 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 |---|---|---|
 | `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod (skipped when nothing under `terraform/` changed); `ci` is the required check |
 | `deploy.yml` | Merge to `main` | apply dev → plan prod (stored in the private plan bucket) → **approval** → apply that exact plan, then delete it |
+| `promote.yml` | Manual | open a pull request pinning prod to the AMI dev runs |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
 
 Production stages (prod plan on pull requests, prod plan/apply on deploy) run only when the
