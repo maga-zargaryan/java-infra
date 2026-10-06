@@ -102,6 +102,7 @@ resource "aws_ec2_tag" "ami_in_use" {
 
 locals {
   app_version = lookup(data.aws_ami.app.tags, "AppVersion", "unknown")
+  ami_commit  = lookup(data.aws_ami.app.tags, "GitCommit", "unknown")
 }
 
 resource "aws_launch_template" "app" {
@@ -143,7 +144,7 @@ resource "aws_launch_template" "app" {
 
   tag_specifications {
     resource_type = "instance"
-    tags          = { Name = "${local.name}-app", Environment = var.environment, AppVersion = local.app_version }
+    tags          = { Name = "${local.name}-app", Environment = var.environment, AppVersion = local.app_version, AmiGitCommit = local.ami_commit }
   }
 
   tag_specifications {
