@@ -4,8 +4,9 @@ resource "aws_db_parameter_group" "this" {
   description = "${local.name} MySQL parameters"
 
   parameter {
+    # RDS stores booleans as 1/0; "ON" would show as a change on every plan.
     name  = "require_secure_transport"
-    value = "ON"
+    value = "1"
   }
 
   parameter {

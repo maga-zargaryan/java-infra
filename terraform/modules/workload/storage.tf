@@ -56,9 +56,10 @@ resource "aws_efs_access_point" "app" {
 
 data "aws_iam_policy_document" "efs" {
   statement {
-    sid     = "DenyInsecureTransport"
-    effect  = "Deny"
-    actions = ["*"]
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["*"]
+    resources = [aws_efs_file_system.this.arn]
 
     principals {
       type        = "AWS"
@@ -73,8 +74,9 @@ data "aws_iam_policy_document" "efs" {
   }
 
   statement {
-    sid     = "AppThroughAccessPoint"
-    actions = ["elasticfilesystem:ClientMount", "elasticfilesystem:ClientWrite"]
+    sid       = "AppThroughAccessPoint"
+    actions   = ["elasticfilesystem:ClientMount", "elasticfilesystem:ClientWrite"]
+    resources = [aws_efs_file_system.this.arn]
 
     principals {
       type        = "AWS"
