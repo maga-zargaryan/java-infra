@@ -2,7 +2,7 @@ aws_region  = "eu-west-1"
 environment = "dev"
 # Exact app AMI (no "latest"). Set from the java-ami build summary.
 # Placeholder until the first app AMI is built: plans fail with a clear message until it is set.
-ami_id = "ami-SET-AFTER-FIRST-BUILD"
+ami_id = "ami-0433aaa28c8d21f24"
 
 # alert_email comes from the ALERT_EMAIL environment secret (TF_VAR_alert_email).
 
