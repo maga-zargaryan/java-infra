@@ -103,7 +103,7 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod (skipped when nothing under `terraform/` changed); `ci` is the required check |
-| `deploy.yml` | Merge to `main` | apply dev → plan prod (stored in the private plan bucket) → **approval** → apply that exact plan, then delete it |
+| `deploy.yml` | Merge to `main` | apply dev and wait for a healthy rollout (instance refresh + `/health`) → plan prod (stored in the private plan bucket) → **approval** → apply that exact plan, then delete it |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
 
 Production stages (prod plan on pull requests, prod plan/apply on deploy) run only when the
