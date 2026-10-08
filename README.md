@@ -77,7 +77,7 @@ Instances have **no user data**. java-infra publishes the runtime settings to `/
 | Security | Security-group chain ALB → app → RDS/EFS; no internet egress; IMDSv2 with hop limit 1; KMS-encrypted EBS, RDS, EFS, logs and SNS; RDS-managed master password in Secrets Manager, `require_secure_transport`; EFS policy enforces TLS and access only through the app's access point; IAM roles under the platform permissions boundary; WAF managed rules + per-IP rate limit (prod) |
 | Reliability | 2 AZs; ELB health checks; instance refresh with launch-before-terminate and auto-rollback; Multi-AZ RDS, 14-day backups, deletion protection and final snapshot (prod); EFS backups (prod) |
 | Performance | Graviton (`t4g` dev, `m7g` prod); gp3; EFS Elastic throughput; CPU target tracking |
-| Cost | Dev: single instance, single-AZ `db.t4g.micro`, no WAF, short retention; storage autoscaling; EFS Infrequent Access after 30 days |
+| Cost | Dev: single instance, single-AZ `db.t4g.small`, no WAF, short retention; storage autoscaling; EFS Infrequent Access after 30 days |
 | Operations | CloudWatch agent ships app logs + memory/disk metrics; RDS error/slow logs; ALB access logs; alarms (5xx, unhealthy hosts, latency, DB CPU/storage) to SNS email |
 
 ## Releasing and promoting
