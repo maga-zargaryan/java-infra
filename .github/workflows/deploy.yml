@@ -27,7 +27,7 @@ jobs:
   dev:
     name: apply (dev)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: development
     env:
       TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
@@ -42,6 +42,9 @@ jobs:
       - name: Apply
         working-directory: terraform/environments/dev
         run: terraform apply -lock-timeout=5m -auto-approve
+      - name: Wait for a healthy rollout
+        working-directory: terraform/environments/dev
+        run: ../../../.github/scripts/wait-for-rollout.sh
 
   prod-plan:
     name: plan (prod)
@@ -82,7 +85,7 @@ jobs:
     needs: prod-plan
     if: vars.PRODUCTION_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: production
     env:
       PLAN_URI: s3://${{ vars.TF_PLAN_BUCKET }}/${{ github.event.repository.name }}/prod/${{ github.run_id }}/tfplan
@@ -101,6 +104,9 @@ jobs:
       - name: Apply reviewed plan
         working-directory: terraform/environments/prod
         run: terraform apply -lock-timeout=5m tfplan
+      - name: Wait for a healthy rollout
+        working-directory: terraform/environments/prod
+        run: ../../../.github/scripts/wait-for-rollout.sh
       - name: Delete stored plan
         if: always()
         run: aws s3 rm "$PLAN_URI" --only-show-errors
