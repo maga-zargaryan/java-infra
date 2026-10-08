@@ -20,7 +20,7 @@ cpu_target_utilization = 50
 
 # Database: single-AZ, short backups, disposable
 db_engine_version        = "8.4"
-db_instance_class        = "db.t4g.micro"
+db_instance_class        = "db.t4g.small"
 db_name                  = "app"
 db_allocated_storage     = 20
 db_max_allocated_storage = 50
