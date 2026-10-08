@@ -8,15 +8,11 @@ variable "environment" {
   type        = string
 }
 
-variable "ami_ssm_parameter" {
-  description = "SSM parameter holding the AMI ID published by java-ami."
+variable "ami_id" {
+  description = "Exact app AMI this environment runs."
   type        = string
 }
 
-variable "app_version" {
-  description = "Release to deploy: s3://<artifacts>/java-app/<app_version>/app.jar (+ app.jar.sha256)."
-  type        = string
-}
 
 variable "app_port" {
   description = "Port the application listens on."

@@ -4,7 +4,7 @@ data "aws_partition" "current" {}
 
 data "aws_region" "current" {}
 
-# Contract published by infra-bootstrap, platform-infra and java-ami.
+# Contract published by infra-bootstrap and platform-infra.
 locals {
   platform_parameters = toset([
     "vpc_id",
@@ -26,16 +26,8 @@ data "aws_ssm_parameter" "platform" {
   name = "/java-platform/${var.environment}/${each.value}"
 }
 
-data "aws_ssm_parameter" "artifacts_bucket" {
-  name = "/java-platform/artifacts_bucket"
-}
-
 data "aws_ssm_parameter" "boundary_arn" {
   name = "/java-platform/boundary_arn"
-}
-
-data "aws_ssm_parameter" "ami" {
-  name = var.ami_ssm_parameter
 }
 
 locals {
@@ -51,7 +43,6 @@ locals {
   app_subnet_ids    = split(",", local.platform.app_subnet_ids)
   kms_key_arn       = local.platform.kms_key_arn
   domain_name       = local.platform.domain_name
-  artifacts_bucket  = data.aws_ssm_parameter.artifacts_bucket.insecure_value
   boundary_arn      = data.aws_ssm_parameter.boundary_arn.insecure_value
-  ami_id            = data.aws_ssm_parameter.ami.insecure_value
+  ami_id            = var.ami_id
 }
