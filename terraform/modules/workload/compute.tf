@@ -163,6 +163,8 @@ resource "aws_autoscaling_group" "app" {
   health_check_grace_period = 300
   default_instance_warmup   = 120
   target_group_arns         = [aws_lb_target_group.app.arn]
+  # Creating or resizing the group succeeds only once this many instances pass ELB health checks.
+  wait_for_elb_capacity = var.asg_min_size
 
   enabled_metrics = [
     "GroupDesiredCapacity",
