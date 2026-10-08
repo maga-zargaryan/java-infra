@@ -8,17 +8,18 @@ variable "environment" {
   }
 }
 
-variable "ami_ssm_parameter" {
-  description = "SSM parameter holding the AMI ID published by java-ami."
+variable "ami_id" {
+  description = "Exact app AMI this environment runs (built by java-ami). Promote by copying dev's value to prod."
   type        = string
+
+  validation {
+    condition     = can(regex("^ami-[0-9a-f]{8,17}$", var.ami_id))
+    error_message = "ami_id must be an exact AMI ID (ami-…) built by java-ami. Copy it from the java-ami build summary."
+  }
 }
 
 # Application
 
-variable "app_version" {
-  description = "Release to deploy: s3://<artifacts>/java-app/<app_version>/app.jar (+ app.jar.sha256)."
-  type        = string
-}
 
 variable "app_port" {
   description = "Port the application listens on."

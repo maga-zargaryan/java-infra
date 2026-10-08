@@ -27,10 +27,11 @@ resource "aws_iam_role_policy_attachment" "app_managed" {
 }
 
 data "aws_iam_policy_document" "app" {
+  # The baked boot-time configurator reads this environment's settings.
   statement {
-    sid       = "ReadReleaseArtifacts"
-    actions   = ["s3:GetObject"]
-    resources = ["arn:${local.partition}:s3:::${local.artifacts_bucket}/java-app/*"]
+    sid       = "ReadRuntimeSettings"
+    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
+    resources = ["arn:${local.partition}:ssm:${local.region}:${local.account_id}:parameter/java-platform/${var.environment}/app/*"]
   }
 
   statement {
@@ -75,32 +76,42 @@ resource "aws_iam_instance_profile" "app" {
   role = aws_iam_role.app.name
 }
 
+# The AMI carries the application release; read its version for tags.
+data "aws_ami" "app" {
+  owners = ["self"]
+
+  filter {
+    name   = "image-id"
+    values = [local.ami_id]
+  }
+
+  lifecycle {
+    postcondition {
+      condition     = lookup(self.tags, "Image", "") == "java-app"
+      error_message = "ami_id must be an app AMI built by java-ami (tag Image=java-app)."
+    }
+  }
+}
+
+# Marks the AMI as in use so the java-ami lifecycle policy never deletes it.
+resource "aws_ec2_tag" "ami_in_use" {
+  resource_id = local.ami_id
+  key         = "InUse-${var.environment}"
+  value       = "true"
+}
+
 locals {
-  user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    region              = local.region
-    environment         = var.environment
-    app_version         = var.app_version
-    app_port            = var.app_port
-    artifacts_bucket    = local.artifacts_bucket
-    efs_id              = aws_efs_file_system.this.id
-    efs_access_point_id = aws_efs_access_point.app.id
-    db_host             = aws_db_instance.this.address
-    db_port             = aws_db_instance.this.port
-    db_name             = aws_db_instance.this.db_name
-    db_secret_arn       = aws_db_instance.this.master_user_secret[0].secret_arn
-    log_group_name      = aws_cloudwatch_log_group.app.name
-    java_opts           = var.java_opts
-  })
+  app_version = lookup(data.aws_ami.app.tags, "AppVersion", "unknown")
+  ami_commit  = lookup(data.aws_ami.app.tags, "GitCommit", "unknown")
 }
 
 resource "aws_launch_template" "app" {
   name                   = "${local.name}-app"
-  description            = "Java application ${var.app_version} on ${local.ami_id}"
+  description            = "Java application ${local.app_version} (${local.ami_id})"
   image_id               = local.ami_id
   instance_type          = var.instance_type
   ebs_optimized          = true
   update_default_version = true
-  user_data              = base64encode(local.user_data)
   vpc_security_group_ids = [aws_security_group.app.id]
 
   iam_instance_profile {
@@ -111,6 +122,8 @@ resource "aws_launch_template" "app" {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
     http_put_response_hop_limit = 1
+    # The boot-time configurator reads the Environment tag from instance metadata.
+    instance_metadata_tags = "enabled"
   }
 
   monitoring {
@@ -131,7 +144,7 @@ resource "aws_launch_template" "app" {
 
   tag_specifications {
     resource_type = "instance"
-    tags          = { Name = "${local.name}-app", AppVersion = var.app_version }
+    tags          = { Name = "${local.name}-app", Environment = var.environment, AppVersion = local.app_version, AmiGitCommit = local.ami_commit }
   }
 
   tag_specifications {
@@ -164,7 +177,7 @@ resource "aws_autoscaling_group" "app" {
     version = aws_launch_template.app.latest_version
   }
 
-  # A new AMI or app_version creates a launch template version and rolls the
+  # A new AMI (which carries the app release) creates a launch template version and rolls the
   # fleet: new instances must pass ELB health checks before old ones go.
   instance_refresh {
     strategy = "Rolling"
@@ -193,6 +206,7 @@ resource "aws_autoscaling_group" "app" {
     aws_iam_role_policy_attachment.app_managed,
     aws_efs_mount_target.this,
     aws_efs_file_system_policy.this,
+    aws_ssm_parameter.runtime,
   ]
 }
 

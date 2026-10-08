@@ -51,6 +51,7 @@ jobs:
     timeout-minutes: 20
     environment: production-plan
     env:
+      PLAN_URI: s3://${{ vars.TF_PLAN_BUCKET }}/${{ github.event.repository.name }}/prod/${{ github.run_id }}/tfplan
       TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -70,18 +71,11 @@ jobs:
             terraform show -no-color tfplan
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      # Plans can contain sensitive values and these repositories are public.
-      - name: Encrypt plan
+      # Reviewed plans hold state values: they go to a private bucket that only the
+      # prod plan and apply roles can reach, never to (public) workflow artifacts.
+      - name: Store plan for the apply job
         working-directory: terraform/environments/prod
-        env:
-          TF_PLAN_PASSPHRASE: ${{ secrets.TF_PLAN_PASSPHRASE }}
-        run: openssl enc -aes-256-cbc -pbkdf2 -salt -in tfplan -out tfplan.enc -pass env:TF_PLAN_PASSPHRASE
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: prod-tfplan
-          path: terraform/environments/prod/tfplan.enc
-          retention-days: 1
-          if-no-files-found: error
+        run: aws s3 cp tfplan "$PLAN_URI" --only-show-errors
 
   prod-apply:
     name: apply (prod)
@@ -91,24 +85,22 @@ jobs:
     timeout-minutes: 30
     environment: production
     env:
+      PLAN_URI: s3://${{ vars.TF_PLAN_BUCKET }}/${{ github.event.repository.name }}/prod/${{ github.run_id }}/tfplan
       TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: prod-tfplan
-          path: terraform/environments/prod
       - uses: ./.github/actions/terraform
         with:
           working-directory: terraform/environments/prod
           role-arn: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
           terraform-version: ${{ env.TERRAFORM_VERSION }}
-      - name: Decrypt plan
+      - name: Fetch reviewed plan
         working-directory: terraform/environments/prod
-        env:
-          TF_PLAN_PASSPHRASE: ${{ secrets.TF_PLAN_PASSPHRASE }}
-        run: openssl enc -d -aes-256-cbc -pbkdf2 -in tfplan.enc -out tfplan -pass env:TF_PLAN_PASSPHRASE
+        run: aws s3 cp "$PLAN_URI" tfplan --only-show-errors
       - name: Apply reviewed plan
         working-directory: terraform/environments/prod
         run: terraform apply -lock-timeout=5m tfplan
+      - name: Delete stored plan
+        if: always()
+        run: aws s3 rm "$PLAN_URI" --only-show-errors

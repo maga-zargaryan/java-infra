@@ -1,11 +1,12 @@
-aws_region        = "eu-west-1"
-environment       = "prod"
-ami_ssm_parameter = "/imagebuilder/java-platform/java-base"
+aws_region  = "eu-west-1"
+environment = "prod"
+# Exact app AMI (no "latest"). Promote by copying the AMI ID dev runs.
+# Placeholder until the first app AMI is built: plans fail with a clear message until it is set.
+ami_id = "ami-SET-AFTER-FIRST-BUILD"
 
 # alert_email comes from the ALERT_EMAIL environment secret (TF_VAR_alert_email).
 
-# Application release (s3://<artifacts>/java-app/<app_version>/app.jar)
-app_version       = "0.1.0"
+# The application release comes from the AMI (java-ami app_version).
 app_port          = 8080
 health_check_path = "/health"
 java_opts         = "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"

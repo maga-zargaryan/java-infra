@@ -1,6 +1,6 @@
 # java-infra
 
-> Part of **[Java Platform](https://github.com/maga-zargaryan/java-platform)** · [infra-bootstrap](https://github.com/maga-zargaryan/infra-bootstrap) → [platform-infra](https://github.com/maga-zargaryan/platform-infra) → [java-ami](https://github.com/maga-zargaryan/java-ami) → **java-infra**
+> Part of **[Java Platform](https://github.com/maga-zargaryan/java-platform)** · [java-app](https://github.com/maga-zargaryan/java-app) (source) · [infra-bootstrap](https://github.com/maga-zargaryan/infra-bootstrap) → [platform-infra](https://github.com/maga-zargaryan/platform-infra) → [java-ami](https://github.com/maga-zargaryan/java-ami) → **java-infra**
 >
 > See [java-platform](https://github.com/maga-zargaryan/java-platform) for how the four layers fit together.
 
@@ -15,7 +15,7 @@ access through SSM Session Manager (no SSH, no bastion).
                      │ :8080
                      ▼
         Auto Scaling group (private app subnets, 2 AZs)
-        java-base AMI · IMDSv2 · KMS-encrypted gp3
+        app AMI (no user data) · IMDSv2 · KMS-encrypted gp3
           │            │             │
           ▼            ▼             ▼
    RDS MySQL 8.4     EFS (TLS +    VPC endpoints
@@ -59,11 +59,16 @@ Read from SSM Parameter Store, never from other repositories' state:
 
 | Parameter | Published by |
 |---|---|
-| `/java-platform/{artifacts_bucket, boundary_arn}` | infra-bootstrap |
+| `/java-platform/boundary_arn` | infra-bootstrap |
 | `/java-platform/<env>/{vpc_id, *_subnet_ids, db_subnet_group_name, endpoint_sg_id, s3_prefix_list_id, kms_key_arn, acm_certificate_arn, domain_name, route53_zone_id}` | platform-infra |
-| `/imagebuilder/java-platform/java-base` | java-ami |
+
+The **AMI is not looked up**: each environment pins an exact `ami_id` (an app AMI built by java-ami, which carries the release) in its `terraform.tfvars`. There is no "latest". The AMI is validated (`Image=java-app`) and tagged `InUse-<env>` so java-ami's cleanup never deletes it.
 
 `alert_email` comes from the `ALERT_EMAIL` environment secret, managed by infra-bootstrap.
+
+## Outputs to instances
+
+Instances have **no user data**. java-infra publishes the runtime settings to `/java-platform/<env>/app/{server_port, java_opts, db_host, db_port, db_name, db_secret_arn, efs_id, efs_access_point_id, log_group}`, tags each instance with `Environment`, and enables instance-metadata tags. The configurator baked into the AMI reads the tag and loads those settings at boot. The instance role may read only its own environment's prefix.
 
 ## Design
 
@@ -75,18 +80,19 @@ Read from SSM Parameter Store, never from other repositories' state:
 | Cost | Dev: single instance, single-AZ `db.t4g.micro`, no WAF, short retention; storage autoscaling; EFS Infrequent Access after 30 days |
 | Operations | CloudWatch agent ships app logs + memory/disk metrics; RDS error/slow logs; ALB access logs; alarms (5xx, unhealthy hosts, latency, DB CPU/storage) to SNS email |
 
-## Releasing the application
+## Releasing and promoting
 
-1. Upload the build to the artifacts bucket:
-   ```bash
-   VERSION=0.1.0
-   BUCKET=$(aws ssm get-parameter --name /java-platform/artifacts_bucket --query Parameter.Value --output text)
-   sha256sum app.jar > app.jar.sha256
-   aws s3 cp app.jar        s3://$BUCKET/java-app/$VERSION/app.jar
-   aws s3 cp app.jar.sha256 s3://$BUCKET/java-app/$VERSION/app.jar.sha256
-   ```
-2. Set `app_version` in `terraform/environments/<env>/terraform.tfvars` and open a pull request.
-3. Merge: dev rolls out, then prod after approval. Instances verify the checksum before starting.
+A release is an exact AMI, moved through the environments by pull request:
+
+1. **Release** in [java-app](https://github.com/maga-zargaryan/java-app): push a version tag. Its pipeline builds,
+   tests and uploads the JAR; a pull request in java-ami bakes it in.
+2. **Image**: merging that pull request builds and tests the app AMI; the build summary shows its ID.
+3. **Dev**: set `ami_id` in `terraform/environments/dev/terraform.tfvars` by pull request and merge it.
+   Dev rolls to the new AMI (health checks, auto-rollback).
+4. **Prod**: copy dev's `ami_id` to `terraform/environments/prod/terraform.tfvars` by pull request; merging it
+   and approving `production` makes prod run exactly the image dev ran.
+
+Rollback: set `ami_id` back to the previous AMI and merge.
 
 The application listens on `SERVER_PORT` (8080), answers `GET /health` with 200,
 and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_ARN`
@@ -97,7 +103,7 @@ and reads `DB_HOST`, `DB_PORT`, `DB_NAME` and the credentials from `DB_SECRET_AR
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `pr.yml` | Pull request | fmt, validate, tflint, Trivy; read-only plans for dev and prod (skipped when nothing under `terraform/` changed); `ci` is the required check |
-| `deploy.yml` | Merge to `main` | apply dev → plan prod → **approval** → apply the reviewed (encrypted) plan |
+| `deploy.yml` | Merge to `main` | apply dev → plan prod (stored in the private plan bucket) → **approval** → apply that exact plan, then delete it |
 | `destroy.yml` | Manual | lift deletion protection, destroy one environment |
 
 Production stages (prod plan on pull requests, prod plan/apply on deploy) run only when the
